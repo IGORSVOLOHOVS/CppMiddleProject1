@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory>
+#include <print>
 #include <sstream>
 
 #include "crypto_guard_ctx.h"
@@ -100,9 +101,11 @@ TEST_F(CryptoGuardCtxTest, Decrypt_EmptyPassword_Exception) {
     }, openssl_error);
 }
 
+// https://emn178.github.io/online-tools/sha256.html
 TEST_F(CryptoGuardCtxTest, CheckSum_HelloOpenSSL_Correct) {
     inStream_ << "Hello OpenSSL crypto world!";
     auto const res = ctx_->CalculateChecksum(inStream_);
 
-    ASSERT_EQ(res, "");
+    std::print("{}",res);
+    ASSERT_EQ(res, "abec80fdd7834513c54b7c6522cd3c9318a5decce7305e48fb1b51da6a4899");
 }

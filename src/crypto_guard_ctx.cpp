@@ -31,7 +31,7 @@ namespace CryptoGuard {
         using UniqueEVPCipherCTX = std::unique_ptr<EVP_CIPHER_CTX, decltype([](EVP_CIPHER_CTX* cp_ctx){ EVP_CIPHER_CTX_free(cp_ctx); })>;
         
         using UniqueEVPMDCTX = std::unique_ptr<EVP_MD_CTX, decltype([](EVP_MD_CTX* md_ctx){ EVP_MD_CTX_free(md_ctx); })>;
-        using UniqueEVPMD = std::unique_ptr<EVP_MD, decltype([](EVP_MD* md){EVP_MD_free(md);})>;
+        using UniqueEVPMD = std::unique_ptr<const EVP_MD, decltype([](const EVP_MD* md){EVP_MD_free((EVP_MD*)md);})>;
         
         Impl() {
             OpenSSL_add_all_algorithms();
@@ -70,8 +70,8 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_CipherInit_ex failed!");
             }
 
-            while(true){
-                inStream.read(reinterpret_cast<char*>(&inBuf), CRIPT_BLOCK_SPACE);
+            while(inStream.good()){
+                inStream.read(reinterpret_cast<char*>(inBuf.data()), CRIPT_BLOCK_SPACE);
                 if(inStream.bad()){
                     throw std::runtime_error("inStream.read(reinterpret_cast<char*>(&inBuf), CRIPT_BLOCK_SPACE); failed!");
                 }
@@ -85,7 +85,7 @@ namespace CryptoGuard {
                     throw openssl_error("EVP_CipherUpdate failed!");
                 }
 
-                outStream.write(reinterpret_cast<char*>(&outBuf), outLen);
+                outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
                 if(outStream.bad()){
                     throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
                 }
@@ -94,7 +94,7 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_CipherFinal_ex failed!");
             }
 
-            outStream.write(reinterpret_cast<char*>(&outBuf), outLen);
+            outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
             if(outStream.bad()){
                 throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
             }
@@ -129,8 +129,8 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_CipherInit_ex failed!");
             }
 
-            while(true){
-                inStream.read(reinterpret_cast<char*>(&inBuf), CRIPT_BLOCK_SPACE);
+            while(inStream.good()){
+                inStream.read(reinterpret_cast<char*>(inBuf.data()), CRIPT_BLOCK_SPACE);
                 if(inStream.bad()){
                     throw std::runtime_error("inStream.read(reinterpret_cast<char*>(&inBuf), CRIPT_BLOCK_SPACE); failed!");
                 }
@@ -143,7 +143,7 @@ namespace CryptoGuard {
                     throw openssl_error("EVP_CipherUpdate failed!");
                 }
 
-                outStream.write(reinterpret_cast<char*>(&outBuf), outLen);
+                outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
                 if(outStream.bad()){
                     throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
                 }
@@ -152,7 +152,7 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_CipherFinal_ex failed!");
             }
 
-            outStream.write(reinterpret_cast<char*>(&outBuf), outLen);
+            outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
             if(outStream.bad()){
                 throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
             }
@@ -173,15 +173,15 @@ namespace CryptoGuard {
             unsigned int mdLen{};
             int inLen{0};
             //ERR_error_string(ERR_get_error(), errstr);
-            UniqueEVPMD md{(EVP_MD*)EVP_get_digestbyname("SHA256")};
-            if(md){
-                throw openssl_error("EVP_get_digestbyname failed!");
-            }
+            UniqueEVPMD md{EVP_sha256()};
+            // if(md){
+            //     throw openssl_error("EVP_get_digestbyname failed!");
+            // }
             
             UniqueEVPMDCTX md_ctx{EVP_MD_CTX_new()};
-            if(md_ctx){
-                throw openssl_error("EVP_MD_CTX_new() failed!");
-            }
+            // if(md_ctx){
+            //     throw openssl_error("EVP_MD_CTX_new() failed!");
+            // }
 
             if (!EVP_DigestInit_ex2(md_ctx.get(), md.get(), NULL)) {
                 throw openssl_error("EVP_DigestInit_ex2 failed!");
@@ -207,7 +207,7 @@ namespace CryptoGuard {
 
             std::stringstream output{};
             for (size_t i = 0; i < mdLen; i++) {
-                output << std::hex << mdBuf[i];
+                output << std::hex << (int)mdBuf[i];
             }
 
             return output.str();
