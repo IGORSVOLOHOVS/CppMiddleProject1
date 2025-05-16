@@ -67,23 +67,6 @@ TEST_F(CryptoGuardCtxTest, EncryptDecrypt_HelloOpenSSLWrongPassword_Exception) {
     }, openssl_error);
 }
 
-// TEST_F(CryptoGuardCtxTest, Encrypt_EmptyText_Exception) {
-//     password_ = "1234";
-
-//     ASSERT_THROW({
-//         ctx_->EncryptFile(inStream_, outStream_, password_);
-//     }, openssl_error);
-// }
-
-// TEST_F(CryptoGuardCtxTest, Encrypt_EmptyPassword_Exception) {
-//     inStream_ << "Hello OpenSSL crypto world!";
-//     password_ = "";
-
-//     ASSERT_THROW({
-//         ctx_->EncryptFile(inStream_, outStream_, password_);
-//     }, openssl_error);
-// }
-
 TEST_F(CryptoGuardCtxTest, Decrypt_EmptyText_Exception) {
     password_ = "1234";
 

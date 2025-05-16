@@ -20,7 +20,7 @@
 namespace CryptoGuard {
 
     openssl_error::openssl_error(std::string msg): std::runtime_error(std::move(msg)){}
-    const char * openssl_error::what () const throw ()
+    const char * openssl_error::what () override const noexcept
     {
         ERR_error_string(ERR_get_error(), what_message.get());
         return what_message.get();
