@@ -1,8 +1,7 @@
 #include "crypto_guard_ctx.h"
-#include <algorithm>
+#include <iomanip>
 #include <ios>
 #include <istream>
-#include <iterator>
 #include <memory>
 #include <array>
 #include <iostream>
@@ -13,14 +12,13 @@
 #include <print>
 #include <stdexcept>
 #include <string>
-#include <vector>
-#include <sstream>      // std::stringstream
+#include <sstream>     
 
 
 namespace CryptoGuard {
 
     openssl_error::openssl_error(std::string msg): std::runtime_error(std::move(msg)){}
-    const char * openssl_error::what () override const noexcept
+    const char * openssl_error::what () const  noexcept
     {
         ERR_error_string(ERR_get_error(), what_message.get());
         return what_message.get();
@@ -31,7 +29,7 @@ namespace CryptoGuard {
         using UniqueEVPCipherCTX = std::unique_ptr<EVP_CIPHER_CTX, decltype([](EVP_CIPHER_CTX* cp_ctx){ EVP_CIPHER_CTX_free(cp_ctx); })>;
         
         using UniqueEVPMDCTX = std::unique_ptr<EVP_MD_CTX, decltype([](EVP_MD_CTX* md_ctx){ EVP_MD_CTX_free(md_ctx); })>;
-        using UniqueEVPMD = std::unique_ptr<const EVP_MD, decltype([](const EVP_MD* md){EVP_MD_free((EVP_MD*)md);})>;
+        using UniqueEVPMD = std::unique_ptr<const EVP_MD, decltype([](const EVP_MD* md){EVP_MD_free(const_cast<EVP_MD*>(md));})>;
         
         Impl() {
             OpenSSL_add_all_algorithms();
@@ -41,17 +39,22 @@ namespace CryptoGuard {
             EVP_cleanup();
         }
         void EncryptFile(std::iostream &inStream, std::iostream &outStream, std::string_view password){
+            if(&inStream == &outStream)
+                throw std::runtime_error("&inStream == &outStream is true!");
+
             auto fail_guard = boost::scope::make_scope_fail([&inStream, &outStream]
             {
-                inStream.clear();
-                inStream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                if (inStream.fail()) {
+                    inStream.clear();
+                }
                 
-                outStream.clear();
-                outStream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                if (outStream.fail()) {
+                    outStream.clear();
+                }
             });
 
-            if(inStream.bad() || outStream.bad())
-                throw std::runtime_error("inStream.bad() || outStream.bad() is true!");
+            if(inStream.fail() || outStream.fail())
+                throw std::runtime_error("inStream.fail() || outStream.fail() is true!");
 
             
             UniqueEVPCipherCTX ctx{EVP_CIPHER_CTX_new()};
@@ -70,48 +73,63 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_CipherInit_ex failed!");
             }
 
-            while(inStream.good()){
+            while(true){
                 inStream.read(reinterpret_cast<char*>(inBuf.data()), CRIPT_BLOCK_SPACE);
-                if(inStream.bad()){
-                    throw std::runtime_error("inStream.read(reinterpret_cast<char*>(&inBuf), CRIPT_BLOCK_SPACE); failed!");
-                }
-                
                 inLen = inStream.gcount();
 
-                if(inLen <= 0)
+                if(inLen > 0){
+                    if (!EVP_CipherUpdate(ctx.get(), outBuf.data(), &outLen, inBuf.data(), inStream.gcount())) {
+                        throw openssl_error("EVP_CipherUpdate failed!");
+                    }
+
+                    if(outLen > 0){
+                        outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
+                        if(outStream.fail()){
+                            throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+                        }
+                    }
+                }else{
+                    if (inStream.eof()) {
+                        break; 
+                    }
+
+                    if (inStream.fail()) {
+                        throw std::runtime_error("inStream.fail() is true!");
+                    }
+
                     break;
-
-                if (!EVP_CipherUpdate(ctx.get(), outBuf.data(), &outLen, inBuf.data(), inStream.gcount())) {
-                    throw openssl_error("EVP_CipherUpdate failed!");
-                }
-
-                outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
-                if(outStream.bad()){
-                    throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
                 }
             }
             if (!EVP_CipherFinal_ex(ctx.get(), outBuf.data(), &outLen)) {
                 throw openssl_error("EVP_CipherFinal_ex failed!");
             }
 
-            outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
-            if(outStream.bad()){
-                throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+            if(outLen > 0){
+                outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
+                if(outStream.fail()){
+                    throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+                }
             }
         }
         void DecryptFile(std::iostream &inStream, std::iostream &outStream, std::string_view password){
+            if(&inStream == &outStream)
+                throw std::runtime_error("&inStream == &outStream is true!");
+
             auto fail_guard = boost::scope::make_scope_fail([&inStream, &outStream]
             {
-                inStream.clear();
-                inStream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                if (inStream.fail()) {
+                    inStream.clear();
+                }
                 
-                outStream.clear();
-                outStream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                if (outStream.fail()) {
+                    outStream.clear();
+                }
             });
 
-            if(inStream.bad() || outStream.bad())
-                throw std::runtime_error("inStream.bad() || outStream.bad()");
+            if(inStream.fail() || outStream.fail())
+                throw std::runtime_error("inStream.fail() || outStream.fail() is true!");
 
+            
             UniqueEVPCipherCTX ctx{EVP_CIPHER_CTX_new()};
 
             std::array<unsigned char, CRIPT_BLOCK_SPACE> inBuf{};
@@ -119,7 +137,6 @@ namespace CryptoGuard {
     
             int inLen{0};
             int outLen{0};
-
 
             auto params = CreateChiperParamsFromPassword(password);
             params.encrypt = 0;
@@ -129,87 +146,98 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_CipherInit_ex failed!");
             }
 
-            while(inStream.good()){
+            while(true){
                 inStream.read(reinterpret_cast<char*>(inBuf.data()), CRIPT_BLOCK_SPACE);
-                if(inStream.bad()){
-                    throw std::runtime_error("inStream.read(reinterpret_cast<char*>(&inBuf), CRIPT_BLOCK_SPACE); failed!");
-                }
                 inLen = inStream.gcount();
 
-                if(inLen <= 0)
+                if(inLen > 0){
+                    if (!EVP_CipherUpdate(ctx.get(), outBuf.data(), &outLen, inBuf.data(), inStream.gcount())) {
+                        throw openssl_error("EVP_CipherUpdate failed!");
+                    }
+
+                    if(outLen > 0){
+                        outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
+                        if(outStream.fail()){
+                            throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+                        }
+                    }
+                }else{
+                    if (inStream.eof()) {
+                        break; 
+                    }
+
+                    if (inStream.fail()) {
+                        throw std::runtime_error("inStream.fail() is true!");
+                    }
+
                     break;
-
-                if (!EVP_CipherUpdate(ctx.get(), outBuf.data(), &outLen, inBuf.data(), inLen)) {
-                    throw openssl_error("EVP_CipherUpdate failed!");
-                }
-
-                outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
-                if(outStream.bad()){
-                    throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
                 }
             }
             if (!EVP_CipherFinal_ex(ctx.get(), outBuf.data(), &outLen)) {
                 throw openssl_error("EVP_CipherFinal_ex failed!");
             }
 
-            outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
-            if(outStream.bad()){
-                throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+            if(outLen > 0){
+                outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
+                if(outStream.fail()){
+                    throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+                }
             }
         }
         std::string CalculateChecksum(std::iostream &inStream) { 
             auto fail_guard = boost::scope::make_scope_fail([&inStream]
             {
-                inStream.clear();
-                inStream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                if (inStream.fail()) {
+                    inStream.clear();
+                }
             });
 
-            if(inStream.bad())
-                throw std::runtime_error("inStream.bad()!");
+            if(inStream.fail())
+                throw std::runtime_error("inStream.fail()!");
             
-            std::array<unsigned char, CRIPT_BLOCK_SPACE + EVP_MAX_BLOCK_LENGTH> mdBuf{};            
+            std::array<unsigned char, EVP_MAX_MD_SIZE> mdBuf{};            
             std::array<unsigned char, CRIPT_BLOCK_SPACE> inBuf{};
             
             unsigned int mdLen{};
             int inLen{0};
-            //ERR_error_string(ERR_get_error(), errstr);
+
             UniqueEVPMD md{EVP_sha256()};
-            // if(md){
-            //     throw openssl_error("EVP_get_digestbyname failed!");
-            // }
-            
             UniqueEVPMDCTX md_ctx{EVP_MD_CTX_new()};
-            // if(md_ctx){
-            //     throw openssl_error("EVP_MD_CTX_new() failed!");
-            // }
 
             if (!EVP_DigestInit_ex2(md_ctx.get(), md.get(), NULL)) {
                 throw openssl_error("EVP_DigestInit_ex2 failed!");
             }
 
             while(true){
-                inStream.read(reinterpret_cast<char*>(&inBuf), CRIPT_BLOCK_SPACE);
-                if(inStream.bad()){
-                    throw std::runtime_error("inStream.read(reinterpret_cast<char*>(&inBuf), CRIPT_BLOCK_SPACE); failed!");
-                }
+                inStream.read(reinterpret_cast<char*>(inBuf.data()), CRIPT_BLOCK_SPACE);
                 inLen = inStream.gcount();
 
-                if(inLen <= 0)
-                    break;
+                if(inLen > 0){
+                    if (!EVP_DigestUpdate(md_ctx.get(), inBuf.data(), inLen)) {
+                        throw openssl_error("EVP_DigestUpdate failed!");
+                    }
+                }else{
+                    if(inStream.eof()){
+                        break;
+                    }
 
-                if (!EVP_DigestUpdate(md_ctx.get(), inBuf.data(), inLen)) {
-                    throw openssl_error("EVP_DigestUpdate failed!");
+                    if(inStream.fail()){
+                        throw std::runtime_error("inStream.fail() is true!");
+                    }
+
+                    break;
                 }
             }
+
             if (!EVP_DigestFinal_ex(md_ctx.get(), mdBuf.data(), &mdLen)) {
                 throw openssl_error("EVP_DigestFinal_ex failed!");
             }
 
             std::stringstream output{};
+            output << std::hex << std::setfill('0'); 
             for (size_t i = 0; i < mdLen; i++) {
-                output << std::hex << (int)mdBuf[i];
+                output << std::setw(2) << static_cast<int>(mdBuf[i]); 
             }
-
             return output.str();
         }
     private:
