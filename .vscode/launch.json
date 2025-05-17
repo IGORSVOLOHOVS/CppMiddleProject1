@@ -16,7 +16,47 @@
                 "checksum"
             ],
             "cwd": "${workspaceFolder}/build"
-        }
-
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch tests",
+            "program": "${workspaceFolder}/build/CryptoGuard_tests",
+            "cwd": "${workspaceFolder}/build"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch Encrypt",
+            "program": "${workspaceFolder}/build/CryptoGuard",
+            "args": [
+                "-i",
+                "input.txt",
+                "-o",
+                "encrypted.txt",
+                "-p",
+                "1234",
+                "--command",
+                "encrypt"
+            ],
+            "cwd": "${workspaceFolder}/build"
+        },
+                {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch Decrypt",
+            "program": "${workspaceFolder}/build/CryptoGuard",
+            "args": [
+                "-i",
+                "encrypted.txt",
+                "-o",
+                "decrypted.txt",
+                "-p",
+                "1234",
+                "--command",
+                "decrypt"
+            ],
+            "cwd": "${workspaceFolder}/build"
+        },
     ]
 }
