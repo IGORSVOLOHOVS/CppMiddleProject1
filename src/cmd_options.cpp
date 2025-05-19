@@ -11,19 +11,19 @@ ProgramOptions::ProgramOptions() : desc_("Allowed options") {
 
     desc_.add_options()
     ("help,h", "list of available options;")
-    ("command,c", po::value<std::vector<std::string>>(), "encrypt, decrypt or checksum command;")
-    ("input,i", po::value<std::vector<std::string>>(), "path to the input file;")
-    ("output,o", po::value<std::vector<std::string>>(), "path to the file where the result will be saved;")
-    ("password,p", po::value<std::vector<std::string>>(), "password for encryption and decryption.")
+    ("command,c", po::value<std::string>(), "encrypt, decrypt or checksum command;")
+    ("input,i", po::value<std::string>(), "path to the input file;")
+    ("output,o", po::value<std::string>(), "path to the file where the result will be saved;")
+    ("password,p", po::value<std::string>(), "password for encryption and decryption.")
 ;
 }
 
 ProgramOptions::~ProgramOptions() = default;
 
-bool ProgramOptions::Parse(int argc, char *argv[]) { 
+void ProgramOptions::Parse(int argc, char *argv[]) { 
     if(argc < 2) {
         std::cout << desc_ << std::endl;
-        return true;
+        throw std::runtime_error{"No arguments!"};
     }
 
     namespace po = boost::program_options;
@@ -32,52 +32,57 @@ bool ProgramOptions::Parse(int argc, char *argv[]) {
     try {
         po::store(po::parse_command_line(argc, argv, desc_), vm);
     } catch (std::exception const& e){
-        std::print("ProgramOptions error: {}\n", e.what());
-        return false;
+        std::cout << desc_ << std::endl;
+        throw std::runtime_error{std::format("Parsingrror: {}", e.what())};
     }    
     po::notify(vm);    
 
     // if help exists - print info
     if (vm.count("help")) {
         std::cout << desc_ << std::endl;
-        return true;
-    }else if(vm.count("input") && vm.count("command")){
-        inputFile_ = vm["input"].as<std::vector<std::string>>().front();
-        const auto command = vm["command"].as<std::vector<std::string>>().front();
-        
-        if(commandMapping_.contains(command))
-            command_ = commandMapping_.at(command);
-        else 
-            return false;
-
-        switch (command_) {
-            case ProgramOptions::COMMAND_TYPE::ENCRYPT:{
-                if(vm.count("password") && vm.count("output")){
-                    password_ = vm["password"].as<std::vector<std::string>>().front();
-                    outputFile_ = vm["output"].as<std::vector<std::string>>().front();
-                    return true;
-                }
-                break;
-            }
-            case ProgramOptions::COMMAND_TYPE::DECRYPT:{
-                if(vm.count("password") && vm.count("output")){
-                    password_ = vm["password"].as<std::vector<std::string>>().front();
-                    outputFile_ = vm["output"].as<std::vector<std::string>>().front();
-                    return true;
-                }
-                break;
-            }
-            case ProgramOptions::COMMAND_TYPE::CHECKSUM:{
-                return true;
-            }
-            default:
-                break;
-        }
-        return false;
-    }else{
-        return false;
+        throw std::runtime_error{"No arguments!"};
     }
 
-    return false; 
+    if(!vm.count("input") || !vm.count("command")) {
+        throw std::runtime_error{"Not all mandatory args were provided: no input or command"};
+    }
+
+    
+    const auto command = vm["command"].as<std::string>();
+    if(!commandMapping_.contains(command)) 
+    {
+        throw std::runtime_error{std::format("Invalid command: {}", command)};
+    }
+    
+    command_ = commandMapping_.at(command);
+    inputFile_ = vm["input"].as<std::string>();
+
+    switch (command_) {
+        case ProgramOptions::COMMAND_TYPE::ENCRYPT:{
+            if(vm.count("password") && vm.count("output")){
+                password_ = vm["password"].as<std::string>();
+                outputFile_ = vm["output"].as<std::string>();
+                return;
+            }
+            throw std::runtime_error{"Not all mandatory args were provided: no password or output!"};
+            break;
+        }
+        case ProgramOptions::COMMAND_TYPE::DECRYPT:{
+            if(vm.count("password") && vm.count("output")){
+                password_ = vm["password"].as<std::string>();
+                outputFile_ = vm["output"].as<std::string>();
+                return;
+            }
+            throw std::runtime_error{"Not all mandatory args were provided: no password or output!"};
+            break;
+        }
+        case ProgramOptions::COMMAND_TYPE::CHECKSUM:{
+            return;
+        }
+        default:
+            break;
+    }
+
+    throw std::runtime_error("Something is wrong!");
 }
 }  // namespace CryptoGuard

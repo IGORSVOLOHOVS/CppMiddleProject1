@@ -11,7 +11,6 @@ using namespace CryptoGuard;
 class CryptoGuardCtxTest: public ::testing::Test{
 protected:
     void SetUp() override{
-        ctx_ = std::make_unique<CryptoGuardCtx>();
     }
     void TearDown() override{
         inStream_.clear();
@@ -27,7 +26,7 @@ protected:
 
     std::string expected_{};
 
-    std::unique_ptr<CryptoGuardCtx> ctx_{};
+    CryptoGuardCtx ctx_{};
 };
 
 TEST_F(CryptoGuardCtxTest, EncryptDecrypt_HelloOpenSSL_Correct) {
@@ -35,12 +34,12 @@ TEST_F(CryptoGuardCtxTest, EncryptDecrypt_HelloOpenSSL_Correct) {
     inStream_ << expected_;
     password_ = "1234";
 
-    ctx_->EncryptFile(inStream_, outStream_, password_);
+    ctx_.EncryptFile(inStream_, outStream_, password_);
     
-    std::stringstream outStream2_;
-    ctx_->DecryptFile(outStream_, outStream2_, password_);
+    std::stringstream decOutStream;
+    ctx_.DecryptFile(outStream_, decOutStream, password_);
 
-    ASSERT_EQ(expected_, outStream2_.str());
+    ASSERT_EQ(expected_, decOutStream.str());
 }
 
 TEST_F(CryptoGuardCtxTest, EncryptDecrypt_HelloOpenSSLWrongPassword_Exception) {
@@ -48,12 +47,12 @@ TEST_F(CryptoGuardCtxTest, EncryptDecrypt_HelloOpenSSLWrongPassword_Exception) {
     inStream_ << expected_;
     
     password_ = "1234";
-    ctx_->EncryptFile(inStream_, outStream_, password_);
+    ctx_.EncryptFile(inStream_, outStream_, password_);
     std::stringstream outStream2_;
     password_ = "12345";
 
     ASSERT_THROW({
-        ctx_->DecryptFile(outStream_, outStream2_, password_);
+        ctx_.DecryptFile(outStream_, outStream2_, password_);
     }, openssl_error);
 }
 
@@ -61,7 +60,7 @@ TEST_F(CryptoGuardCtxTest, Decrypt_EmptyText_Exception) {
     password_ = "1234";
 
     ASSERT_THROW({
-        ctx_->DecryptFile(inStream_, outStream_, password_);
+        ctx_.DecryptFile(inStream_, outStream_, password_);
     }, openssl_error);
 }
 
@@ -70,62 +69,51 @@ TEST_F(CryptoGuardCtxTest, Decrypt_EmptyPassword_Exception) {
     password_ = "";
 
     ASSERT_THROW({
-        ctx_->DecryptFile(inStream_, outStream_, password_);
+        ctx_.DecryptFile(inStream_, outStream_, password_);
     }, openssl_error);
 }
 
 TEST_F(CryptoGuardCtxTest, Encrypt_ImputIsEqualOutput_Exception) {
     ASSERT_THROW({
-        ctx_->EncryptFile(inStream_, inStream_, password_);
+        ctx_.EncryptFile(inStream_, inStream_, password_);
     }, std::runtime_error);
 }
 
 TEST_F(CryptoGuardCtxTest, Decrypt_ImputIsEqualOutput_Exception) {
     ASSERT_THROW({
-        ctx_->DecryptFile(inStream_, inStream_, password_);
+        ctx_.DecryptFile(inStream_, inStream_, password_);
     }, std::runtime_error);
 }
 
 TEST_F(CryptoGuardCtxTest, Encrypt_InvalidInput_Exception) {
     inStream_.setstate(std::ios_base::eofbit | std::ios_base::failbit);
     ASSERT_THROW({
-        ctx_->EncryptFile(inStream_, outStream_, password_);
+        ctx_.EncryptFile(inStream_, outStream_, password_);
     }, std::runtime_error);
-
-    ASSERT_TRUE(inStream_.good());
-    ASSERT_TRUE(outStream_.good());
 }
 TEST_F(CryptoGuardCtxTest, Encrypt_InvalidOutput_Exception) {
     outStream_.setstate(std::ios_base::eofbit | std::ios_base::failbit);
     ASSERT_THROW({
-        ctx_->EncryptFile(inStream_, outStream_, password_);
+        ctx_.EncryptFile(inStream_, outStream_, password_);
     }, std::runtime_error);
-
-    ASSERT_TRUE(inStream_.good());
-    ASSERT_TRUE(outStream_.good());
 }
 TEST_F(CryptoGuardCtxTest, Decrypt_InvalidInput_Exception) {
     inStream_.setstate(std::ios_base::eofbit | std::ios_base::failbit);
     ASSERT_THROW({
-        ctx_->DecryptFile(inStream_, outStream_, password_);
+        ctx_.DecryptFile(inStream_, outStream_, password_);
     }, std::runtime_error);
-    ASSERT_TRUE(inStream_.good());
-    ASSERT_TRUE(outStream_.good());
 }
 TEST_F(CryptoGuardCtxTest, Decrypt_InvalidOutput_Exception) {
     outStream_.setstate(std::ios_base::eofbit | std::ios_base::failbit);
     ASSERT_THROW({
-        ctx_->DecryptFile(inStream_, outStream_, password_);
+        ctx_.DecryptFile(inStream_, outStream_, password_);
     }, std::runtime_error);
-    ASSERT_TRUE(inStream_.good());
-    ASSERT_TRUE(outStream_.good());
 }
 TEST_F(CryptoGuardCtxTest, CheckSum_InvalidInput_Exception) {
     inStream_.setstate(std::ios_base::eofbit | std::ios_base::failbit);
     ASSERT_THROW({
-        auto const result = ctx_->CalculateChecksum(inStream_);
+        auto const result = ctx_.CalculateChecksum(inStream_);
     }, std::runtime_error);
-    ASSERT_TRUE(inStream_.good());
 }
 
 
@@ -134,7 +122,7 @@ TEST_F(CryptoGuardCtxTest, CheckSum_HelloOpenSSL_Correct) {
     inStream_ << "Hello OpenSSL crypto world!";
     expected_ = "abec80fdd708340513c54b7c6522cd3c9318a5decce7305e48fb1b51da6a4899";
 
-    auto const result = ctx_->CalculateChecksum(inStream_);
+    auto const result = ctx_.CalculateChecksum(inStream_);
 
     ASSERT_EQ(result, expected_);
 }
@@ -144,12 +132,12 @@ TEST_F(CryptoGuardCtxTest, CheckSum_EncryptDecript_Correct) {
     password_ = "qwerty12345";
     expected_ = "abec80fdd708340513c54b7c6522cd3c9318a5decce7305e48fb1b51da6a4899";
 
-    ctx_->EncryptFile(inStream_, outStream_, password_);
+    ctx_.EncryptFile(inStream_, outStream_, password_);
     
     inStream_.clear(); // now it is output
-    ctx_->DecryptFile(outStream_, inStream_, password_);
+    ctx_.DecryptFile(outStream_, inStream_, password_);
 
-    auto const result = ctx_->CalculateChecksum(inStream_);
+    auto const result = ctx_.CalculateChecksum(inStream_);
 
     ASSERT_EQ(result, expected_);
 }

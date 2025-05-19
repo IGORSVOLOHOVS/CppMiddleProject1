@@ -1,5 +1,12 @@
+#include <memory>
 #include <print>
 #include <gtest/gtest.h>
+
+#include <array>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
 #include "cmd_options.h"
 
@@ -10,7 +17,6 @@ constexpr unsigned int TEST_ARG_MAX_COUNT = 100;
 class ProgramOptionsTest: public ::testing::Test{
 protected:
     void SetUp() override{
-        po_ = std::make_unique<ProgramOptions>();
     }
     void TearDown() override{
         argc_ = 0;
@@ -20,17 +26,19 @@ protected:
     }
 
     int argc_;
-    char *argv_[TEST_ARG_MAX_COUNT];
+    std::array<char*, TEST_ARG_MAX_COUNT> argv_;
 
-    std::unique_ptr<ProgramOptions> po_{};
+    ProgramOptions po_{};
 };
 
 
-TEST_F(ProgramOptionsTest, Parse_Help_True) { 
+TEST_F(ProgramOptionsTest, Parse_Help_Exception) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
     argv_[argc_++] = const_cast<char*>("--help");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_)); 
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }
 
 TEST_F(ProgramOptionsTest, Parse_HelpAndOtherArg_Exception) { 
@@ -45,7 +53,9 @@ TEST_F(ProgramOptionsTest, Parse_HelpAndOtherArg_Exception) {
     argv_[argc_++] = const_cast<char*>("decrypt");
     argv_[argc_++] = const_cast<char*>("--help");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_)); 
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }
 
 TEST_F(ProgramOptionsTest, ParseGetCommand_CommandEncrypt_True) { 
@@ -59,8 +69,8 @@ TEST_F(ProgramOptionsTest, ParseGetCommand_CommandEncrypt_True) {
     argv_[argc_++] = const_cast<char*>("--command");
     argv_[argc_++] = const_cast<char*>("encrypt");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
-    ASSERT_EQ(po_->GetCommand(), ProgramOptions::COMMAND_TYPE::ENCRYPT);
+    po_.Parse(argc_, argv_.data());
+    ASSERT_EQ(po_.GetCommand(), ProgramOptions::COMMAND_TYPE::ENCRYPT);
 }
 TEST_F(ProgramOptionsTest, ParseGetCommand_CommandDecrypt_True) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
@@ -73,8 +83,8 @@ TEST_F(ProgramOptionsTest, ParseGetCommand_CommandDecrypt_True) {
     argv_[argc_++] = const_cast<char*>("--command");
     argv_[argc_++] = const_cast<char*>("decrypt");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
-    ASSERT_EQ(po_->GetCommand(), ProgramOptions::COMMAND_TYPE::DECRYPT);
+    po_.Parse(argc_, argv_.data());
+    ASSERT_EQ(po_.GetCommand(), ProgramOptions::COMMAND_TYPE::DECRYPT);
 }
 TEST_F(ProgramOptionsTest, ParseGetCommand_CommandCheckSum_True) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
@@ -87,10 +97,10 @@ TEST_F(ProgramOptionsTest, ParseGetCommand_CommandCheckSum_True) {
     argv_[argc_++] = const_cast<char*>("--command");
     argv_[argc_++] = const_cast<char*>("checksum");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
-    ASSERT_EQ(po_->GetCommand(), ProgramOptions::COMMAND_TYPE::CHECKSUM);
+    po_.Parse(argc_, argv_.data());
+    ASSERT_EQ(po_.GetCommand(), ProgramOptions::COMMAND_TYPE::CHECKSUM);
 }
-TEST_F(ProgramOptionsTest, ParseGetCommand_UnknownCommand_False) { 
+TEST_F(ProgramOptionsTest, ParseGetCommand_UnknownCommand_Exception) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
     argv_[argc_++] = const_cast<char*>("--input");
     argv_[argc_++] = const_cast<char*>("input.txt");
@@ -101,10 +111,12 @@ TEST_F(ProgramOptionsTest, ParseGetCommand_UnknownCommand_False) {
     argv_[argc_++] = const_cast<char*>("--output");
     argv_[argc_++] = const_cast<char*>("encrypted.txt");
 
-    ASSERT_FALSE(po_->Parse(argc_, argv_));
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }
 
-TEST_F(ProgramOptionsTest, Parse_EmptyInput_False) { 
+TEST_F(ProgramOptionsTest, Parse_EmptyInput_Exception) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
     argv_[argc_++] = const_cast<char*>("--input");
     argv_[argc_++] = const_cast<char*>("--command");
@@ -113,7 +125,9 @@ TEST_F(ProgramOptionsTest, Parse_EmptyInput_False) {
     argv_[argc_++] = const_cast<char*>("1234");   
     argv_[argc_++] = const_cast<char*>("--output");
 
-    ASSERT_FALSE(po_->Parse(argc_, argv_));
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }
 TEST_F(ProgramOptionsTest, ParseGetInputFile_Input_True) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
@@ -122,10 +136,10 @@ TEST_F(ProgramOptionsTest, ParseGetInputFile_Input_True) {
     argv_[argc_++] = const_cast<char*>("--command");
     argv_[argc_++] = const_cast<char*>("checksum");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
-    ASSERT_EQ(po_->GetInputFile(), "input.txt");
+    po_.Parse(argc_, argv_.data());
+    ASSERT_EQ(po_.GetInputFile(), "input.txt");
 }
-TEST_F(ProgramOptionsTest, Parse_EmptyOutput_False) { 
+TEST_F(ProgramOptionsTest, Parse_EmptyOutput_Exception) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
     argv_[argc_++] = const_cast<char*>("--input");
     argv_[argc_++] = const_cast<char*>("input.txt");
@@ -135,7 +149,9 @@ TEST_F(ProgramOptionsTest, Parse_EmptyOutput_False) {
     argv_[argc_++] = const_cast<char*>("1234");   
     argv_[argc_++] = const_cast<char*>("--output");
 
-    ASSERT_FALSE(po_->Parse(argc_, argv_));
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }
 TEST_F(ProgramOptionsTest, ParseGetOutputFile_Output_True) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
@@ -148,10 +164,10 @@ TEST_F(ProgramOptionsTest, ParseGetOutputFile_Output_True) {
     argv_[argc_++] = const_cast<char*>("--output");
     argv_[argc_++] = const_cast<char*>("encrypted.txt");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
-    ASSERT_EQ(po_->GetOutputFile(), "encrypted.txt");
+    po_.Parse(argc_, argv_.data());
+    ASSERT_EQ(po_.GetOutputFile(), "encrypted.txt");
 }
-TEST_F(ProgramOptionsTest, Parse_EmptyPassword_False) { 
+TEST_F(ProgramOptionsTest, Parse_EmptyPassword_Exception) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
     argv_[argc_++] = const_cast<char*>("--input");
     argv_[argc_++] = const_cast<char*>("input.txt");
@@ -161,7 +177,9 @@ TEST_F(ProgramOptionsTest, Parse_EmptyPassword_False) {
     argv_[argc_++] = const_cast<char*>("--output");
     argv_[argc_++] = const_cast<char*>("encrypted.txt");
 
-    ASSERT_FALSE(po_->Parse(argc_, argv_));
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }
 TEST_F(ProgramOptionsTest, ParseGetPassword_Password_True) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
@@ -174,8 +192,8 @@ TEST_F(ProgramOptionsTest, ParseGetPassword_Password_True) {
     argv_[argc_++] = const_cast<char*>("--output");
     argv_[argc_++] = const_cast<char*>("encrypted.txt");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
-    ASSERT_EQ(po_->GetPassword(), "1234");
+    po_.Parse(argc_, argv_.data());
+    ASSERT_EQ(po_.GetPassword(), "1234");
 }
 
 TEST_F(ProgramOptionsTest, Parse_Aliases_True){
@@ -189,12 +207,12 @@ TEST_F(ProgramOptionsTest, Parse_Aliases_True){
     argv_[argc_++] = const_cast<char*>("-c");
     argv_[argc_++] = const_cast<char*>("encrypt");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
+    po_.Parse(argc_, argv_.data());
 
-    ASSERT_EQ(po_->GetInputFile(), "input.txt");
-    ASSERT_EQ(po_->GetOutputFile(), "encrypted.txt");
-    ASSERT_EQ(po_->GetPassword(), "1234");
-    ASSERT_EQ(po_->GetCommand(), ProgramOptions::COMMAND_TYPE::ENCRYPT);
+    ASSERT_EQ(po_.GetInputFile(), "input.txt");
+    ASSERT_EQ(po_.GetOutputFile(), "encrypted.txt");
+    ASSERT_EQ(po_.GetPassword(), "1234");
+    ASSERT_EQ(po_.GetCommand(), ProgramOptions::COMMAND_TYPE::ENCRYPT);
 }
 
 TEST_F(ProgramOptionsTest, Parse_AliasesMix_True){
@@ -208,22 +226,24 @@ TEST_F(ProgramOptionsTest, Parse_AliasesMix_True){
     argv_[argc_++] = const_cast<char*>("--command");
     argv_[argc_++] = const_cast<char*>("encrypt");
 
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
+    po_.Parse(argc_, argv_.data());
 
-    ASSERT_EQ(po_->GetInputFile(), "input.txt");
-    ASSERT_EQ(po_->GetOutputFile(), "encrypted.txt");
-    ASSERT_EQ(po_->GetPassword(), "1234");
-    ASSERT_EQ(po_->GetCommand(), ProgramOptions::COMMAND_TYPE::ENCRYPT);
+    ASSERT_EQ(po_.GetInputFile(), "input.txt");
+    ASSERT_EQ(po_.GetOutputFile(), "encrypted.txt");
+    ASSERT_EQ(po_.GetPassword(), "1234");
+    ASSERT_EQ(po_.GetCommand(), ProgramOptions::COMMAND_TYPE::ENCRYPT);
 }
 
-TEST_F(ProgramOptionsTest, Parse_NoOptions_True){
+TEST_F(ProgramOptionsTest, Parse_NoOptions_Exception){
     // print help info if no arguments
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
     
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }
 
-TEST_F(ProgramOptionsTest, Parse_DoubleArgInit_True){
+TEST_F(ProgramOptionsTest, Parse_DoubleArgInit_Exception){
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
     argv_[argc_++] = const_cast<char*>("-i");
     argv_[argc_++] = const_cast<char*>("input1.txt");
@@ -236,15 +256,11 @@ TEST_F(ProgramOptionsTest, Parse_DoubleArgInit_True){
     argv_[argc_++] = const_cast<char*>("-i");
     argv_[argc_++] = const_cast<char*>("input2.txt");
 
-
-    ASSERT_TRUE(po_->Parse(argc_, argv_));
-
-    ASSERT_EQ(po_->GetInputFile(), "input1.txt");
-    ASSERT_EQ(po_->GetOutputFile(), "encrypted.txt");
-    ASSERT_EQ(po_->GetPassword(), "1234");
-    ASSERT_EQ(po_->GetCommand(), ProgramOptions::COMMAND_TYPE::ENCRYPT);
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }
-TEST_F(ProgramOptionsTest, Parse_CheckSumOutputPassword_False) { 
+TEST_F(ProgramOptionsTest, Parse_CheckSumOutputPassword_Exception) { 
     argv_[argc_++] = const_cast<char*>("./CryptoGuard");
     argv_[argc_++] = const_cast<char*>("-o");
     argv_[argc_++] = const_cast<char*>("encrypted.txt");
@@ -253,5 +269,7 @@ TEST_F(ProgramOptionsTest, Parse_CheckSumOutputPassword_False) {
     argv_[argc_++] = const_cast<char*>("--command");
     argv_[argc_++] = const_cast<char*>("checksum");
 
-    ASSERT_FALSE(po_->Parse(argc_, argv_));
+    ASSERT_THROW({
+        po_.Parse(argc_, argv_.data());
+    }, std::runtime_error);
 }

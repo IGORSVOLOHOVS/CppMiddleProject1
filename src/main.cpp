@@ -7,65 +7,54 @@
 #include <print>
 #include <stdexcept>
 
+std::fstream GetFilestream(std::string_view filename, std::ios::openmode mode){
+    std::fstream file(filename.data(), mode);
+    if (!file.is_open()) {
+        throw std::runtime_error(std::format("Open file error: {}", filename));
+    }
+    return file;
+}
+
 int main(int argc, char *argv[]) {
     try {
         CryptoGuard::ProgramOptions options;
-        if(!options.Parse(argc, argv))
-            throw std::runtime_error("options.Parse(argc, argv) returns false!");
+        options.Parse(argc, argv);
 
         CryptoGuard::CryptoGuardCtx cryptoCtx;
 
         auto const inputStr = options.GetInputFile();
-        auto const outputStr = options.GetOutputFile();
         auto const password = options.GetPassword();
+        auto const outputStr = options.GetOutputFile();
 
+        if(inputStr == outputStr){
+            throw std::runtime_error(std::format("Names of input and output files are the same: {}", inputStr));
+        }
+        
         using COMMAND_TYPE = CryptoGuard::ProgramOptions::COMMAND_TYPE;
         switch (options.GetCommand()) {
         case COMMAND_TYPE::ENCRYPT:
         {
-            // Open input file
-            std::fstream inStream(inputStr, std::ios::in);
-            if (!inStream.is_open()) {
-                throw std::runtime_error(std::format("Open file error: {}", inputStr));
-            }
-           
-            // Open output file
-            std::fstream outStream(outputStr, std::ios::out);
-            if (!outStream.is_open()) {
-                throw std::runtime_error(std::format("Open file error: {}", outputStr));
-            }
+            std::fstream inStream = GetFilestream(inputStr, std::ios::in);
+            std::fstream outStream = GetFilestream(outputStr, std::ios::out);
+
             cryptoCtx.EncryptFile(inStream, outStream, password);
 
-            // Encrypt file
             std::print("Input file {} was encrypted successfuly in output file {}.\n", inputStr, outputStr);
             break;
         }
         case COMMAND_TYPE::DECRYPT:
         {
-            // Open input file
-            std::fstream inStream(inputStr, std::ios::in);
-            if (!inStream.is_open()) {
-                throw std::runtime_error(std::format("Open file error: {}", inputStr));
-            }
-           
-            // Open output file
-            std::fstream outStream(outputStr, std::ios::out);
-            if (!outStream.is_open()) {
-                throw std::runtime_error(std::format("Open file error: {}", outputStr));
-            }
+            std::fstream inStream = GetFilestream(inputStr, std::ios::in);
+            std::fstream outStream = GetFilestream(outputStr, std::ios::out);
+
             cryptoCtx.DecryptFile(inStream, outStream, password);
             
-
             std::print("Input file {} was decrypted successfuly in output file {}.\n", inputStr, outputStr);
             break;
         }
         case COMMAND_TYPE::CHECKSUM:
         {
-            // Open input file
-            std::fstream inStream(inputStr, std::ios::in);
-            if (!inStream.is_open()) {
-                throw std::runtime_error(std::format("Open file error: {}", inputStr));
-            }
+            std::fstream inStream = GetFilestream(inputStr, std::ios::in);
 
             // Calculate checksum
             auto const checkSum = cryptoCtx.CalculateChecksum(inStream);

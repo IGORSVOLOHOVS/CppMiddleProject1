@@ -5,15 +5,15 @@
 
 namespace CryptoGuard {
     
-constexpr unsigned int CRIPT_BLOCK_SPACE = 1024;
+constexpr unsigned int CRIPT_BLOCK_SIZE = 1024;
 constexpr unsigned int ERROR_MSG_SIZE = 1024;
 
 class openssl_error : public std::runtime_error
 {
-    std::unique_ptr<char[]> what_message = std::make_unique<char[]>(ERROR_MSG_SIZE);
+    std::string what_message;
 public:
     openssl_error(std::string msg);
-    const char * what () const throw ();
+    const char * what () const noexcept;
 };
 
 class CryptoGuardCtx {

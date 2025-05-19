@@ -8,7 +8,6 @@
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
-#include <boost/scope/scope_fail.hpp>
 #include <print>
 #include <stdexcept>
 #include <string>
@@ -17,11 +16,13 @@
 
 namespace CryptoGuard {
 
-    openssl_error::openssl_error(std::string msg): std::runtime_error(std::move(msg)){}
-    const char * openssl_error::what () const  noexcept
+    openssl_error::openssl_error(std::string msg): std::runtime_error(std::move(msg)){
+        what_message.reserve(ERROR_MSG_SIZE);
+    }
+    const char * openssl_error::what () const noexcept
     {
-        ERR_error_string(ERR_get_error(), what_message.get());
-        return what_message.get();
+        ERR_error_string(ERR_get_error(), const_cast<char*>(what_message.data()));
+        return what_message.c_str();
     }
 
     class CryptoGuardCtx::Impl{
@@ -39,28 +40,14 @@ namespace CryptoGuard {
             EVP_cleanup();
         }
         void EncryptFile(std::iostream &inStream, std::iostream &outStream, std::string_view password){
-            if(&inStream == &outStream)
-                throw std::runtime_error("&inStream == &outStream is true!");
-
-            auto fail_guard = boost::scope::make_scope_fail([&inStream, &outStream]
-            {
-                if (inStream.fail()) {
-                    inStream.clear();
-                }
-                
-                if (outStream.fail()) {
-                    outStream.clear();
-                }
-            });
-
             if(inStream.fail() || outStream.fail())
-                throw std::runtime_error("inStream.fail() || outStream.fail() is true!");
+                throw std::runtime_error("I/O streams are in invalid state!");
 
             
             UniqueEVPCipherCTX ctx{EVP_CIPHER_CTX_new()};
 
-            std::array<unsigned char, CRIPT_BLOCK_SPACE> inBuf{};
-            std::array<unsigned char, CRIPT_BLOCK_SPACE + EVP_MAX_BLOCK_LENGTH> outBuf{};
+            std::array<unsigned char, CRIPT_BLOCK_SIZE> inBuf{};
+            std::array<unsigned char, CRIPT_BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH> outBuf{};
     
             int inLen{0};
             int outLen{0};
@@ -73,8 +60,11 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_CipherInit_ex failed!");
             }
 
-            while(true){
-                inStream.read(reinterpret_cast<char*>(inBuf.data()), CRIPT_BLOCK_SPACE);
+            while (!inStream.eof()) {
+                if (inStream.fail()) {
+                    throw std::runtime_error("Input stream is in invalid state!");
+                }
+                inStream.read(reinterpret_cast<char*>(inBuf.data()), inBuf.size());
                 inLen = inStream.gcount();
 
                 if(inLen > 0){
@@ -85,19 +75,9 @@ namespace CryptoGuard {
                     if(outLen > 0){
                         outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
                         if(outStream.fail()){
-                            throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+                            throw std::runtime_error("Failed to write to file!");
                         }
                     }
-                }else{
-                    if (inStream.eof()) {
-                        break; 
-                    }
-
-                    if (inStream.fail()) {
-                        throw std::runtime_error("inStream.fail() is true!");
-                    }
-
-                    break;
                 }
             }
             if (!EVP_CipherFinal_ex(ctx.get(), outBuf.data(), &outLen)) {
@@ -107,33 +87,19 @@ namespace CryptoGuard {
             if(outLen > 0){
                 outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
                 if(outStream.fail()){
-                    throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+                    throw std::runtime_error("Failed to write to file!");
                 }
             }
         }
         void DecryptFile(std::iostream &inStream, std::iostream &outStream, std::string_view password){
-            if(&inStream == &outStream)
-                throw std::runtime_error("&inStream == &outStream is true!");
-
-            auto fail_guard = boost::scope::make_scope_fail([&inStream, &outStream]
-            {
-                if (inStream.fail()) {
-                    inStream.clear();
-                }
-                
-                if (outStream.fail()) {
-                    outStream.clear();
-                }
-            });
-
             if(inStream.fail() || outStream.fail())
-                throw std::runtime_error("inStream.fail() || outStream.fail() is true!");
+                throw std::runtime_error("I/O streams are in invalid state!");
 
             
             UniqueEVPCipherCTX ctx{EVP_CIPHER_CTX_new()};
 
-            std::array<unsigned char, CRIPT_BLOCK_SPACE> inBuf{};
-            std::array<unsigned char, CRIPT_BLOCK_SPACE + EVP_MAX_BLOCK_LENGTH> outBuf{};
+            std::array<unsigned char, CRIPT_BLOCK_SIZE> inBuf{};
+            std::array<unsigned char, CRIPT_BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH> outBuf{};
     
             int inLen{0};
             int outLen{0};
@@ -146,8 +112,11 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_CipherInit_ex failed!");
             }
 
-            while(true){
-                inStream.read(reinterpret_cast<char*>(inBuf.data()), CRIPT_BLOCK_SPACE);
+            while (!inStream.eof()) {
+                if (inStream.fail()) {
+                    throw std::runtime_error("Input stream is in invalid state!");
+                }
+                inStream.read(reinterpret_cast<char*>(inBuf.data()), inBuf.size());
                 inLen = inStream.gcount();
 
                 if(inLen > 0){
@@ -158,19 +127,9 @@ namespace CryptoGuard {
                     if(outLen > 0){
                         outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
                         if(outStream.fail()){
-                            throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+                            throw std::runtime_error("Failed to write to file!");
                         }
                     }
-                }else{
-                    if (inStream.eof()) {
-                        break; 
-                    }
-
-                    if (inStream.fail()) {
-                        throw std::runtime_error("inStream.fail() is true!");
-                    }
-
-                    break;
                 }
             }
             if (!EVP_CipherFinal_ex(ctx.get(), outBuf.data(), &outLen)) {
@@ -180,23 +139,16 @@ namespace CryptoGuard {
             if(outLen > 0){
                 outStream.write(reinterpret_cast<char*>(outBuf.data()), outLen);
                 if(outStream.fail()){
-                    throw std::runtime_error("outStream.write(reinterpret_cast<char*>(&outBuf), outLen); failed!");
+                    throw std::runtime_error("Failed to write to file!");
                 }
             }
         }
         std::string CalculateChecksum(std::iostream &inStream) { 
-            auto fail_guard = boost::scope::make_scope_fail([&inStream]
-            {
-                if (inStream.fail()) {
-                    inStream.clear();
-                }
-            });
-
             if(inStream.fail())
-                throw std::runtime_error("inStream.fail()!");
+                throw std::runtime_error("Input stream is in invalid state!");
             
-            std::array<unsigned char, EVP_MAX_MD_SIZE> mdBuf{};            
-            std::array<unsigned char, CRIPT_BLOCK_SPACE> inBuf{};
+            std::array<unsigned char, EVP_MAX_BLOCK_LENGTH> mdBuf{};            
+            std::array<unsigned char, CRIPT_BLOCK_SIZE> inBuf{};
             
             unsigned int mdLen{};
             int inLen{0};
@@ -208,24 +160,17 @@ namespace CryptoGuard {
                 throw openssl_error("EVP_DigestInit_ex2 failed!");
             }
 
-            while(true){
-                inStream.read(reinterpret_cast<char*>(inBuf.data()), CRIPT_BLOCK_SPACE);
+            while (!inStream.eof()) {
+                if (inStream.fail()) {
+                    throw std::runtime_error("Input stream is in invalid state!");
+                }
+                inStream.read(reinterpret_cast<char*>(inBuf.data()), inBuf.size());
                 inLen = inStream.gcount();
 
                 if(inLen > 0){
                     if (!EVP_DigestUpdate(md_ctx.get(), inBuf.data(), inLen)) {
                         throw openssl_error("EVP_DigestUpdate failed!");
                     }
-                }else{
-                    if(inStream.eof()){
-                        break;
-                    }
-
-                    if(inStream.fail()){
-                        throw std::runtime_error("inStream.fail() is true!");
-                    }
-
-                    break;
                 }
             }
 
