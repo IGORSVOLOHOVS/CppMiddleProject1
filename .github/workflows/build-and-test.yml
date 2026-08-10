@@ -1,0 +1,97 @@
+# Configure, build and run the test suite the way the dev container does.
+#
+# The job ends in `ctest`. This is an encryption tool wrapping OpenSSL: a build
+# that links proves the headers were found, and nothing whatsoever about
+# whether a round trip still decrypts to the plaintext it started from.
+#
+# The toolchain mirrors .devcontainer/Dockerfile (GCC 14) and the dependencies
+# come from conanfile.py with the settings of .devcontainer/default.
+#
+# Boost has no prebuilt binary for this compiler and C++ standard, so the very
+# first run compiles it, which is slow. Every later run restores ~/.conan2 from
+# the cache and skips that entirely; the key is the hash of conanfile.py, so
+# the price is paid again only when the dependencies actually change.
+#
+# scripts/check_before_push.py runs exactly these steps locally.
+
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux / GCC 14 / Conan / Debug
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC 14
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends g++-14 gcc-14 ccache
+          g++-14 --version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Conan
+        run: pip install "conan>=2,<3"
+
+      - name: Restore the Conan cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-linux-gcc14-${{ hashFiles('conanfile.py') }}
+          restore-keys: |
+            conan-linux-gcc14-
+
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-gcc14-${{ github.sha }}
+          restore-keys: |
+            ccache-linux-gcc14-
+
+      # Same settings as .devcontainer/default, except build_type: the
+      # linux-default preset configures Debug, so Conan has to generate the
+      # dependency files for Debug or find_package would come up empty.
+      - name: Install the dependencies
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          set -eux
+          conan profile detect --force
+          conan install . \
+            -s build_type=Debug \
+            -s compiler=gcc \
+            -s compiler.version=14 \
+            -s compiler.cppstd=gnu23 \
+            -s compiler.libcxx=libstdc++11 \
+            --build=missing
+
+      - name: Configure
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: cmake --preset linux-default -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build --preset linux-default
+
+      - name: Test
+        run: ctest --preset linux-default
