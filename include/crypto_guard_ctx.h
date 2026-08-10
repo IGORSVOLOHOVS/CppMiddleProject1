@@ -2,6 +2,9 @@
 
 #include <string>
 #include <memory>
+// MSVC STL не тянет <stdexcept> транзитивно через <string>/<memory>, как это
+// делает libstdc++, поэтому std::runtime_error ниже нужно подключить явно.
+#include <stdexcept>
 
 namespace CryptoGuard {
     

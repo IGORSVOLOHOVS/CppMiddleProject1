@@ -8,7 +8,11 @@
 #include <stdexcept>
 
 std::fstream GetFilestream(std::string_view filename, std::ios::openmode mode){
-    std::fstream file(filename.data(), mode);
+    // std::ios::binary добавляется всегда. На Linux флаг ничего не меняет, а на
+    // Windows без него поток работает в текстовом режиме и портит шифртекст:
+    // при записи 0x0A превращается в 0x0D 0x0A, при чтении 0x1A обрывает файл.
+    // Проявляется как "wrong final block length" на расшифровке.
+    std::fstream file(filename.data(), mode | std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error(std::format("Open file error: {}", filename));
     }

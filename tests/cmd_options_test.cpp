@@ -25,8 +25,13 @@ protected:
         }
     }
 
-    int argc_;
-    std::array<char*, TEST_ARG_MAX_COUNT> argv_;
+    // Инициализация обязательна: TearDown обнуляет счётчик только между
+    // тестами, а самый первый тест получает свежий объект. Под g++ эта память
+    // случайно оказывалась нулевой, под MSVC (Release) в argc_ попадает мусор,
+    // и argv_[argc_++] пишет за пределы массива — тест падал с
+    // "SEH exception with code 0xc0000005 thrown in the test body".
+    int argc_{0};
+    std::array<char*, TEST_ARG_MAX_COUNT> argv_{};
 
     ProgramOptions po_{};
 };

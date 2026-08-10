@@ -15,6 +15,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wfatal-errors)
 endif()
+if(MSVC)
+    # Исходники в UTF-8 (комментарии на русском). Без /utf-8 cl.exe читает их
+    # в ANSI-кодировке машины и сыплет C4819, а на не-кириллической локали
+    # может испортить и текст. /utf-8 задаёт кодировку и исходника, и
+    # выполнения одновременно.
+    add_compile_options(/utf-8)
+endif()
 
 # Ищем необходимые библиотеки
 find_package(OpenSSL REQUIRED)
@@ -35,7 +42,16 @@ target_include_directories(${PROJECT_NAME}_imp PUBLIC
     ${OPENSSL_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
 )
-target_link_libraries(${PROJECT_NAME}_imp PRIVATE OpenSSL::SSL OpenSSL::Crypto ${OPENSSL_LIBRARIES} ${Boost_LIBRARIES})
+# Boost — PUBLIC, а не PRIVATE: публичный заголовок cmd_options.h подключает
+# <boost/program_options.hpp>, значит требования Boost нужны и потребителям
+# библиотеки. С PRIVATE они компилировались без BOOST_ALL_NO_LIB, и MSVC
+# включал автолинковку по именам Boost.Build:
+#   LINK : fatal error LNK1104: cannot open file
+#          'libboost_program_options-vc143-mt-x64-1_86.lib'
+# (Conan раскладывает библиотеки под именем libboost_program_options.lib).
+target_link_libraries(${PROJECT_NAME}_imp
+    PRIVATE OpenSSL::SSL OpenSSL::Crypto ${OPENSSL_LIBRARIES}
+    PUBLIC ${Boost_LIBRARIES})
 
 # Создаём исполняемый таргет и линкуем к нему статическую библиотеку
 add_executable(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/src/main.cpp")
