@@ -1,0 +1,10 @@
+Checks: >-
+  -*,
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  portability-*
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*[/\]include[/\](crypto_guard_ctx|cmd_options)\.h$'
+ExtraArgs: ['--target=x86_64-w64-mingw32']
