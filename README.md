@@ -24,3 +24,7 @@ scripts/   build_windows.ps1, the MSVC build through Conan
 `.\recipe.ps1 test` builds the tool, runs `ctest`, `clang-tidy` and `clang-format`, and searches the core for locks and for `throw`, `try` and `catch`. It needs mingw g++ with the OpenSSL it carries, cmake, ninja and LLVM. `docs/install.md` has the details, and `docs/manual.md` covers the commands.
 
 The source is MIT licensed under the copyright that `LICENSE` names.
+
+## Lab requirements
+
+This repository complies with [revision 4.0.0](http://127.0.0.1:3000/igors-lab/software-requirements/src/tag/v4.0.0/BEST_REQUIREMENTS.md) of the lab requirements, except R-02 (#8), R-09 (#9), R-12 (#10), R-13 (#11), R-14 (#12), R-37 (#13), R-41 (#14), R-42 (#15).
