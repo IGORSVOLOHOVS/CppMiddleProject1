@@ -1,7 +1,10 @@
-#pragma once
+#ifndef CMD_OPTIONS_H
+#define CMD_OPTIONS_H
 
 #include <boost/program_options.hpp>
+#include <cstdint>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 namespace CryptoGuard {
@@ -11,7 +14,7 @@ public:
     ProgramOptions();
     ~ProgramOptions();
 
-    enum class COMMAND_TYPE {
+    enum class COMMAND_TYPE : std::uint8_t {
         ENCRYPT,
         DECRYPT,
         CHECKSUM,
@@ -25,7 +28,7 @@ public:
     std::string GetPassword() const { return password_; }
 
 private:
-    COMMAND_TYPE command_;
+    COMMAND_TYPE command_{COMMAND_TYPE::ENCRYPT};
     const std::unordered_map<std::string_view, COMMAND_TYPE> commandMapping_ = {
         {"encrypt", ProgramOptions::COMMAND_TYPE::ENCRYPT},
         {"decrypt", ProgramOptions::COMMAND_TYPE::DECRYPT},
@@ -40,3 +43,5 @@ private:
 };
 
 }  // namespace CryptoGuard
+
+#endif  // CMD_OPTIONS_H
