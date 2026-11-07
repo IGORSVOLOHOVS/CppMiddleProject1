@@ -1,24 +1,29 @@
-#pragma once
+#ifndef CRYPTO_GUARD_CTX_H
+#define CRYPTO_GUARD_CTX_H
 
-#include <string>
+#include <cstdint>
+#include <expected>
+#include <iosfwd>
 #include <memory>
-// MSVC STL не тянет <stdexcept> транзитивно через <string>/<memory>, как это
-// делает libstdc++, поэтому std::runtime_error ниже нужно подключить явно.
-#include <stdexcept>
+#include <string>
+#include <string_view>
 
 namespace CryptoGuard {
-    
+
 constexpr unsigned int CRIPT_BLOCK_SIZE = 1024;
 constexpr unsigned int ERROR_MSG_SIZE = 1024;
 
-class openssl_error : public std::runtime_error
-{
-    std::string what_message;
-public:
-    openssl_error(std::string msg);
-    const char * what () const noexcept;
+enum class CryptoErrorKind : std::uint8_t {
+    Stream,   // a stream was unusable, or a write to it failed
+    OpenSsl,  // OpenSSL refused: a wrong password or a damaged input ends here
 };
 
+struct CryptoError {
+    CryptoErrorKind kind;
+    std::string message;
+};
+
+// Every failure comes back as a value: this class holds no exception.
 class CryptoGuardCtx {
 public:
     CryptoGuardCtx();
@@ -31,9 +36,11 @@ public:
     CryptoGuardCtx &operator=(CryptoGuardCtx &&) noexcept = default;
 
     // API
-    void EncryptFile(std::iostream &inStream, std::iostream &outStream, std::string_view password);
-    void DecryptFile(std::iostream &inStream, std::iostream &outStream, std::string_view password);
-    std::string CalculateChecksum(std::iostream &inStream);// { return "NOT_IMPLEMENTED"; }
+    [[nodiscard]] std::expected<void, CryptoError> EncryptFile(std::iostream &inStream, std::iostream &outStream,
+                                                               std::string_view password);
+    [[nodiscard]] std::expected<void, CryptoError> DecryptFile(std::iostream &inStream, std::iostream &outStream,
+                                                               std::string_view password);
+    [[nodiscard]] std::expected<std::string, CryptoError> CalculateChecksum(std::iostream &inStream);
 
 private:
     class Impl;
@@ -41,3 +48,5 @@ private:
 };
 
 }  // namespace CryptoGuard
+
+#endif  // CRYPTO_GUARD_CTX_H
