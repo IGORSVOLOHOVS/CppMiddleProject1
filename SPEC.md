@@ -5,6 +5,22 @@ the code does, not what it should do. Every requirement names its source; where 
 code does not answer, the question is in section 9. The documentation hub is
 [`docs/README.md`](docs/README.md).
 
+<!-- jira-sync:start -->
+Jira: KAN-107
+
+## Tasks
+
+This list is one ticket in Jira project KAN, [KAN-107](https://igorsvolohovs.atlassian.net/browse/KAN-107). Each line is a checkbox there: tick it in Jira and the sync ticks it here; add a checkbox there and it is appended here. Done items are the features described in section 3; open items are what the project declares but the code does not do yet.
+
+- [x] Command line (section 3.1) <!-- spec-command-line -->
+- [x] Program (section 3.2) <!-- spec-program -->
+- [x] Core (section 3.3) <!-- spec-core -->
+- [ ] An installer: (declared, not implemented) <!-- spec-an-installer -->
+- [ ] Eight lab requirements are declared unmet: (declared, not implemented) <!-- spec-eight-lab-requirements-are-declared-unmet -->
+- [ ] Manual tests: (declared, not implemented) <!-- spec-manual-tests -->
+
+<!-- jira-sync:end -->
+
 ## 1. Purpose and scope
 
 CryptoGuard is a console program that encrypts and decrypts a file with AES-256-CBC
